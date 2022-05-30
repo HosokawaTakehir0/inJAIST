@@ -5,11 +5,7 @@ node.js/express/socket.io
 
 PART3 課題2
 
-制作者:
-2210118 CHEN,Ruoyi
-2210131 野尻実玖
-2210154 細川岳大
-2210183 LI,Guorui
+制作者:細川岳大
 
 追加機能:
 ・電光掲示板の要領で接続しているClient数が流れる
