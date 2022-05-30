@@ -1,0 +1,82 @@
+.box {
+    animation: inAnime 0.5s forwards;
+    opacity: 0;
+}
+
+:root{
+    --xParam: 100%;
+}
+
+@keyframes inAnime {
+    0% {
+        transform: translateX(var(--xParam));
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateX(0%);
+        opacity: 1;
+    }
+}
+
+@keyframes outAnime {
+    0% {
+        transform: translateX(0%);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateX(-100%);
+        opacity: 1;
+    }
+}
+
+@keyframes outAnime2 {
+    0% {
+        transform: translateX(0%);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateX(100%);
+        opacity: 1;
+    }
+}
+
+
+
+/*https://kouhekikyozou.com/css_close_button*/
+.round_btn {
+    display: block;
+    position: sticky;
+    width: 25px;
+    height: 25px;
+    top: 0;
+    left: 0;
+    border-radius: 50%; /* 丸みの度合い */
+    background: #333; /* ボタンの背景色 */
+    transition: all 1s;
+    z-index: 3;
+}
+
+.round_btn::before, .round_btn::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 3px;
+        height: 21px;
+        background: #fff; /* バツ印の色 */
+}
+
+.round_btn::before {
+        transform: translate(-50%,-50%) rotate(45deg);
+}
+
+.round_btn::after {
+        transform: translate(-50%,-50%) rotate(-45deg);
+}
+
+.round_btn:hover { /* マウスオーバー時のスタイル */
+        transform: rotate(360deg);
+}

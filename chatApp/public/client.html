@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ちゃっと(group_d)</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="clientUtil.css">
+</head>
+
+<body style="overflow-x: hidden;">
+
+    <h1>ちゃっと</h1>
+
+    <marquee scrollamount=10>
+        <p id="entrant"></p>
+    </marquee>
+
+    <div style="position: relative;">
+        <div id="board" style="height: 300px; width: 100%;
+       overflow-y: scroll; border: 1px solid; overflow-x: hidden; position: relative;">
+        </div>
+
+        <div id="subBoard" style="height: 300px; width: 50%;
+    overflow-y: scroll; border: 1px solid; background-color: white;
+     position: absolute; top: 0; right: 1em; display:none; 
+     resize: horizontal; min-width: 15%; max-width: 85%">
+        
+            
+                <div id="delSubBoardBtn" class="round_btn"></div>
+        </div>
+
+    </div>
+
+
+    <p>
+        ユーザ名<input type="text" name="userName" id="userName">
+        発言<input type="text" name="comment" id="comment">
+        色<input type="color" name="color" id="color">
+        <input type="button" name="writeChat" value="書き込み" id="writeChat">
+        <br />
+        誰にささやく?<input type="text" value="" name="toUserName" id="toUserName">
+    </p>
+
+    <script>
+
+        const socket = io();
+        const myID = Math.random();
+
+        let userNameHtml = document.getElementById("userName");
+        let commentHtml = document.getElementById("comment");
+        let colorHtml = document.getElementById("color");
+        let writeChatHtml = document.getElementById("writeChat");
+        let boardHtml = document.getElementById("board");
+        let entrantHtml = document.getElementById("entrant");
+        let toUserNameHtml = document.getElementById("toUserName");
+
+        //チャット本体用
+        let chats = [];
+        boardHtml.innerHTML = "";
+
+        //投票管理用
+        let positions = [];
+        const voteMap = ["", "good", "bad"];
+
+        //button.onclick -> div.onclick 順の処理なので余計なことをさせないためのフラグ
+        let isClickBtn = false;
+
+        //参加者数格納
+        let cntClient = 0;
+
+        //書き込み実行
+        writeChatHtml.onclick = function writeChatExe() {
+            let userName = userNameHtml.value;
+            let comment = commentHtml.value;
+            let color = colorHtml.value;
+            let toUserName = toUserNameHtml.value;
+            if (comment == "") {
+                alert("発言を書いて下さい");
+                return;
+            }
+            socket.emit("addChat",
+                {
+                    userName: userName,
+                    comment: comment,
+                    ID: myID,
+                    color: color,
+                    toUserName: toUserName
+                });
+            commentHtml.value = "";
+        }
+
+
+        //自分に向けられたチャットか否かを判定(userName参照)
+        function isValidChat(data) {
+            return (data.toUserName == "" || data.toUserName == userNameHtml.value ||
+                data.userName == userNameHtml.value)
+        }
+
+        //チャット受け取り
+        socket.on("recieveChat", function (data) {
+            chats.push(data);
+            positions.push(0);
+            let newDiv;
+            newDiv = makeChatDiv(data);
+            if (isValidChat(data)) newDiv = makeChatDiv(data);
+            else return;
+            boardHtml.appendChild(newDiv);
+            boardHtml.scrollTop = boardHtml.scrollHeight;
+        });
+
+
+        //チャットデータのindexからboard内のindexに変換
+        function chatNumToBoardIndex(chatNum) {
+            let tmp = boardHtml.childElementCount - 1;
+            for (let i = chatNum < tmp ? chatNum : tmp; i >= 0; --i) {
+                if (boardHtml.children[i].chatNum == chatNum) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+
+        //自分のチャットを削除依頼
+        function delMyChat() {
+            isClickBtn = true;
+            socket.emit("delServerChat", this.parentNode.chatNum);
+        }
+
+        //チャットの削除
+        socket.on("delChat", function (chatNum) {
+            chats[chatNum].invalid = true;
+            let boardInd = chatNumToBoardIndex(chatNum);
+            let rmvTarget = boardHtml.children[boardInd];
+            rmvTarget.style["--xParam"] = "-100%";
+            rmvTarget.style["animation"] = "outAnime 0.5s forwards";
+            rmvTarget.addEventListener("animationend", function () {
+                boardHtml.removeChild(rmvTarget);
+            });
+
+        });
+
+
+        //チャットに対する投票
+        function positionVote() {
+            isClickBtn = true;
+            let chatNum = this.parentNode.chatNum;
+            let posit = this.name;
+            if (positions[chatNum] == this.flag) {
+                alert("投票済みです");
+                return;
+            }
+            socket.emit("vote", {
+                chatNum: chatNum,
+                newPosit: this.flag,
+                oldPosit: positions[chatNum]
+            });
+            positions[chatNum] = this.flag;
+            for (let i = 1; i < voteMap.length; ++i) {
+                let btn = this.parentNode.children[voteMap[i]];
+                if (i == this.flag) btn.style.backgroundColor = "#aaaaaa";
+                else btn.style.backgroundColor = "";
+
+            }
+        }
+
+        //投票結果の更新
+        socket.on("updateVote", function (data) {
+            let boardInd = chatNumToBoardIndex(data[0]);
+            let child = boardHtml.children[boardInd].children;
+            for (let i = 1; i < voteMap.length; ++i) {
+                let btn = child[voteMap[i]];
+                btn.num = data[i];
+                btn.textContent = btn.name + " : " + btn.num;
+            }
+        });
+
+
+        //チャットデータの文字列化
+        function chatToStr(data) {
+            let str = "<br/>";
+            if (data.toUserName != "") {
+                if (data["toUserName"] == userNameHtml.value
+                    || data["userName"] == userNameHtml.value) {
+                    str += ("<b>" + data["userName"] + "から" + data["toUserName"] +
+                        "へのささやきです" + "</b>");
+                }
+            } else str += ("<b>" + data["userName"] + "</b>");
+            str += ("   " + data["date"] + ":<br/>" + data["comment"] );
+            return str;
+        }
+
+        //rgbをカラーコードに変換
+        function rgbToHex(rgb) {
+            rgb = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+            function toHexStr(c) {
+                let hex = Number(c).toString(16);
+                return hex.length == 1 ? "0" + hex : hex;
+            }
+
+            return "#" + toHexStr(rgb[1]) + toHexStr(rgb[2])
+                + toHexStr(rgb[3]);
+        }
+
+
+        //チャットの文字色取得
+        function getChatColor() {
+            if (isClickBtn) {
+                isClickBtn = false;
+                return;
+            }
+            let rgb = getComputedStyle(this).color;
+            colorHtml.value = rgbToHex(rgb);
+        }
+
+
+        let subBoardHtml = document.getElementById("subBoard");
+
+        //サブボードを非表示
+        function subDisplayNone() {
+            subBoardHtml.style["display"] = "none";
+        }
+
+        //サブボード生成
+        function createSubBoard() {
+            if (isClickBtn) {
+                isClickBtn = false;
+                return;
+            }
+            let subBtnHtml = document.getElementById("delSubBoardBtn");
+            let col = rgbToHex(getComputedStyle(this).color);
+            subBoardHtml.style["display"] = "block";
+            subBoardHtml.style["animation"] = "inAnime 0.5s forwards";
+            subBtnHtml.style.backgroundColor = col;
+            subBtnHtml.onclick = delSubBoardExe;
+            subBoardHtml.removeEventListener("animationend", subDisplayNone);
+
+            let tmpHtml = subBoardHtml.children[0];
+            subBoardHtml.innerHTML = "";
+            subBoardHtml.appendChild(tmpHtml);
+            for (let i = 0; i < chats.length; ++i) {
+                let newDiv = makeChatDiv(chats[i]);
+                
+                if (!chats[i].invalid && chats[i].color == col && isValidChat(chats[i]) ) {
+                    while (newDiv.children[3]) {
+                        newDiv.removeChild(newDiv.children[3]);
+                    }
+                    subBoardHtml.appendChild(newDiv);
+                }
+            }
+        }
+
+        //サブボード削除
+        function delSubBoardExe() {
+            subBoardHtml.style["animation"] = "outAnime2 0.5s forwards";
+            subBoardHtml.addEventListener("animationend", subDisplayNone);
+        }
+
+
+        //チャットの生成
+        function makeChatDiv(data) {
+            let htmlObj = document.createElement("div");
+            htmlObj.innerHTML = chatToStr(data);
+            htmlObj.style.color = data.color;
+            htmlObj.onclick = getChatColor;
+            htmlObj.ondblclick = createSubBoard;
+            htmlObj.chatNum = data.chatNum;
+            htmlObj.className = "box";
+            htmlObj.appendChild(document.createElement("div"));
+
+            if (userNameHtml.value == data["userName"] &&
+                data["ID"] == myID) {
+                let delBtn = document.createElement("button");
+                delBtn.textContent = "削除";
+                delBtn.name = "delButton";
+                delBtn.onclick = delMyChat;
+                htmlObj.appendChild(delBtn);
+            }
+
+            for (let i = 1; i < voteMap.length; ++i) {
+                let btn = document.createElement("button");
+                btn.name = voteMap[i];
+                btn.num = data.posit[i];
+                btn.textContent = voteMap[i] + " : " + String(data.posit[i]);
+                btn.flag = i;
+                btn.onclick = positionVote;
+                htmlObj.appendChild(btn);
+            }
+
+            return htmlObj;
+        }
+
+        //全チャットデータ書き込み
+        function chatsWrite() {
+            boardHtml.innerHTML = "";
+            let cntDelChat = 0;
+            positions = Array(chats.length);
+            for (let i = 0; i < chats.length; ++i) {
+                let newDiv = makeChatDiv(chats[i]);
+
+                if (chats[i].invalid || !isValidChat(chats[i])) ++cntDelChat;
+                else {
+                    newDiv.style.animationDelay = String((i - cntDelChat) / 20) + "s";
+                    boardHtml.appendChild(newDiv);
+                }
+                positions[i] = 0;
+            }
+            
+        }
+
+        //初期ボードスクロール
+        let itv = 5;
+        let y = 0;
+        let dy = 4;
+        function scrollPage() {
+            boardHtml.scrollTo(0, y+= dy);
+            if (y < boardHtml.scrollHeight) { setTimeout("scrollPage()", itv); }
+            if (y >= boardHtml.scrollHeight) return;
+        }
+        scrollPage();
+
+
+        //初期読み込み
+        socket.on("getInit", function (serverChats) {
+            chats = serverChats;
+            chatsWrite();
+        });
+
+
+        //参加者数増減
+        socket.on("updateCntClient", function (cnt) {
+            cntClient = cnt;
+            entrantHtml.innerHTML = "現在" + String(cnt) + "人が参加しています.";
+        });
+
+
+    </script>
+
+</body>
+</html>
