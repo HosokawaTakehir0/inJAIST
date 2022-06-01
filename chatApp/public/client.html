@@ -33,12 +33,20 @@
 
 
     <p>
-        ユーザ名<input type="text" name="userName" id="userName">
+        ユーザ名<input type="text" name="myName" id="myName">
         発言<input type="text" name="comment" id="comment">
         色<input type="color" name="color" id="color">
         <input type="button" name="writeChat" value="書き込み" id="writeChat">
         <br />
-        誰にささやく?<input type="text" value="" name="toUserName" id="toUserName">
+        <input type="button" value="顔文字" id="emotionBtn" name="emotionBtn">
+
+        <span id="replyInfo" style="display: none;"></span>
+        <input type="button" value="返信取り消し" id="noReply" style="display: none;" />
+
+        <span id="emotionList" style="height: 100px; width: 14em; position: absolute;
+        overflow-y:scroll; border: 1px solid; background-color: white;display:none;
+         word-break: break-all; font-size: 25px; line-height: 0px"></span>
+
     </p>
 
     <script>
@@ -46,13 +54,22 @@
         const socket = io();
         const myID = Math.random();
 
-        let userNameHtml = document.getElementById("userName");
+        let myNameHtml = document.getElementById("myName");
         let commentHtml = document.getElementById("comment");
         let colorHtml = document.getElementById("color");
         let writeChatHtml = document.getElementById("writeChat");
         let boardHtml = document.getElementById("board");
         let entrantHtml = document.getElementById("entrant");
-        let toUserNameHtml = document.getElementById("toUserName");
+        let emotionBtnHtml = document.getElementById("emotionBtn");
+        let emotionListHtml = document.getElementById("emotionList");
+        let replyInfoHtml = document.getElementById("replyInfo");
+        let noReplyHtml = document.getElementById("noReply");
+
+
+        //顔文字用
+        let emotionOffset = 0x1F600; //\u{1F600}=😀
+        let emotionNum = 80;
+
 
         //チャット本体用
         let chats = [];
@@ -62,38 +79,53 @@
         let positions = [];
         const voteMap = ["", "good", "bad"];
 
+
         //button.onclick -> div.onclick 順の処理なので余計なことをさせないためのフラグ
         let isClickBtn = false;
 
         //参加者数格納
         let cntClient = 0;
 
+        //チャットデータ
+        //let ID;
+        let myName;
+        let comment;
+        let color;
+        let toUserName;
+        let toUserID = 1;
+
+
         //書き込み実行
         writeChatHtml.onclick = function writeChatExe() {
-            let userName = userNameHtml.value;
-            let comment = commentHtml.value;
-            let color = colorHtml.value;
-            let toUserName = toUserNameHtml.value;
+            myName = myNameHtml.value;
+            comment = commentHtml.value;
+            color = colorHtml.value;
+            //toUserName, toUserID は返信するときのみセット
             if (comment == "") {
                 alert("発言を書いて下さい");
                 return;
             }
             socket.emit("addChat",
                 {
-                    userName: userName,
+                    myName: myName,
                     comment: comment,
                     ID: myID,
                     color: color,
-                    toUserName: toUserName
+                    toUserName: toUserName,
+                    toUserID: toUserID
                 });
             commentHtml.value = "";
+            toUserID = 1;
+            toUserName = "";
+            replyInfoHtml.style["display"] = "none";
+            noReplyHtml.style["display"] = "none";
         }
 
 
-        //自分に向けられたチャットか否かを判定(userName参照)
+        //自分に向けられたチャット、あるいは自分のチャットか否かを判定(userName参照)
         function isValidChat(data) {
-            return (data.toUserName == "" || data.toUserName == userNameHtml.value ||
-                data.userName == userNameHtml.value)
+            return (data.toUserID == 1 || data.toUserID == myID||
+                data.ID == myID)
         }
 
         //チャット受け取り
@@ -107,7 +139,6 @@
             boardHtml.appendChild(newDiv);
             boardHtml.scrollTop = boardHtml.scrollHeight;
         });
-
 
         //チャットデータのindexからboard内のindexに変換
         function chatNumToBoardIndex(chatNum) {
@@ -126,7 +157,6 @@
             isClickBtn = true;
             socket.emit("delServerChat", this.parentNode.chatNum);
         }
-
         //チャットの削除
         socket.on("delChat", function (chatNum) {
             chats[chatNum].invalid = true;
@@ -163,7 +193,6 @@
 
             }
         }
-
         //投票結果の更新
         socket.on("updateVote", function (data) {
             let boardInd = chatNumToBoardIndex(data[0]);
@@ -179,17 +208,16 @@
         //チャットデータの文字列化
         function chatToStr(data) {
             let str = "<br/>";
-            if (data.toUserName != "") {
-                if (data["toUserName"] == userNameHtml.value
-                    || data["userName"] == userNameHtml.value) {
-                    str += ("<b>" + data["userName"] + "から" + data["toUserName"] +
-                        "へのささやきです" + "</b>");
-                }
-            } else str += ("<b>" + data["userName"] + "</b>");
-            str += ("   " + data["date"] + ":<br/>" + data["comment"] );
+            console.log(data["toUserID"], myID);
+            if (data["toUserID"] == data["ID"]) str += "<b></b><b></b>自分自身へのささやきです";
+            else if (data["toUserID"] != 1) {
+                str += ("<b>" + data["myName"] + "</b>から<b>" + data["toUserName"] +
+                    "</b>へのささやきです");
+            } else str += ("<b>" + data["myName"] + "</b><b></b>");
+
+            str += ("   " + data["date"] + ":<br/>" + data["comment"]);
             return str;
         }
-
         //rgbをカラーコードに変換
         function rgbToHex(rgb) {
             rgb = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
@@ -201,8 +229,6 @@
             return "#" + toHexStr(rgb[1]) + toHexStr(rgb[2])
                 + toHexStr(rgb[3]);
         }
-
-
         //チャットの文字色取得
         function getChatColor() {
             if (isClickBtn) {
@@ -215,12 +241,10 @@
 
 
         let subBoardHtml = document.getElementById("subBoard");
-
         //サブボードを非表示
         function subDisplayNone() {
             subBoardHtml.style["display"] = "none";
         }
-
         //サブボード生成
         function createSubBoard() {
             if (isClickBtn) {
@@ -242,14 +266,13 @@
                 let newDiv = makeChatDiv(chats[i]);
                 
                 if (!chats[i].invalid && chats[i].color == col && isValidChat(chats[i]) ) {
-                    while (newDiv.children[3]) {
-                        newDiv.removeChild(newDiv.children[3]);
+                    while (newDiv.children[4]) {
+                        newDiv.removeChild(newDiv.children[4]);
                     }
                     subBoardHtml.appendChild(newDiv);
                 }
             }
         }
-
         //サブボード削除
         function delSubBoardExe() {
             subBoardHtml.style["animation"] = "outAnime2 0.5s forwards";
@@ -266,9 +289,10 @@
             htmlObj.ondblclick = createSubBoard;
             htmlObj.chatNum = data.chatNum;
             htmlObj.className = "box";
+            htmlObj.oncontextmenu = setReply;
             htmlObj.appendChild(document.createElement("div"));
 
-            if (userNameHtml.value == data["userName"] &&
+            if (myNameHtml.value == data["myName"] &&
                 data["ID"] == myID) {
                 let delBtn = document.createElement("button");
                 delBtn.textContent = "削除";
@@ -289,6 +313,75 @@
 
             return htmlObj;
         }
+
+
+        //数字からunicodeを生成
+        function intToUnicode(num) {
+            if (num < 0x10000) return String.fromCharCode(num);
+            else {
+                let cp = num - 0x10000;
+                let high = 0xD800 | (cp >> 10);
+                let low = 0xDC00 | (cp & 0x3FF);
+                return String.fromCharCode(high, low);
+            }
+        }
+        //絵文字ボタン生成
+        for (let i = 0; i < emotionNum; ++i) {
+            let x = intToUnicode(emotionOffset + i);
+            let btn = document.createElement("button");
+            btn.name = "emotion";
+            btn.textContent = x;
+            btn.onclick = setEmotion;
+            btn.style["fontSize"] = "20px";
+            btn.style["border"] = "1px solid gray";
+            btn.style["backgroundColor"] = "white";
+            emotionListHtml.appendChild(btn);
+        }
+        //絵文字ボタンが押されたとき、絵文字リストを呼び出し
+        emotionBtnHtml.onclick = function () {
+            emotionListHtml.style["display"] = "block";
+            let rect = emotionBtnHtml.getBoundingClientRect();
+            emotionListHtml.style.left = rect.left + "px";
+            emotionListHtml.style.top = rect.top + "px";
+        }
+
+        //マウスが離れたら非表示
+        emotionListHtml.addEventListener("mouseleave", function () {
+            emotionListHtml.style["display"] = "none";
+        });
+        //マウスの乗っている子要素の背景色を付ける
+        emotionListHtml.addEventListener("mouseover", function (event) {
+            event.target.style["backgroundColor"] = "PaleTurquoise";
+        });
+        //マウスが子要素から離れたら背景色を白に戻す
+        emotionListHtml.addEventListener("mouseout", function () {
+            event.target.style["backgroundColor"] = "white";
+        });
+        //押されたボタンの絵文字を発言に追加
+        function setEmotion() {
+            commentHtml.value += this.textContent;
+        }
+
+        //返信先設定
+        function setReply() {
+            let chatNum = this.chatNum;
+            toUserName = chats[chatNum].myName;
+            toUserID = chats[chatNum].ID;
+            //if (toUserID == myID) return false;
+            if (toUserID == myID) replyInfoHtml.innerHTML = "自分自身へのささやきです";
+            else replyInfoHtml.innerHTML = "<b>" + toUserName + "</b>さんにささやきます";
+            replyInfoHtml.style["display"] = "block";
+            noReplyHtml.style["display"] = "block";
+            return false;//右クリックイベントキャンセル
+        }
+        //返信先取り消し
+        noReplyHtml.onclick = function () {
+            replyInfoHtml.style["display"] = "none";
+            noReplyHtml.style["display"] = "none";
+            toUserID = 1;
+            toUserName = "";
+        }
+
 
         //全チャットデータ書き込み
         function chatsWrite() {
