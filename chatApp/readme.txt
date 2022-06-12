@@ -6,6 +6,7 @@ node.js/express/socket.io
 PART3 課題2
 
 制作者:細川岳大
+他 3名
 
 追加機能:
 ・電光掲示板の要領で接続しているClient数が流れる
