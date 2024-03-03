@@ -1,0 +1,42 @@
+\clearpage
+\appendix
+
+\def\thesection{付録\Alph{section}}
+\renewcommand{\thetable}{\Alph{section}.\arabic{table}}
+\renewcommand{\thefigure}{\Alph{section}.\arabic{figure}}
+
+
+\section{使用したモデルのパラメータの意味}\label{paramMean}
+本付録では,使用したモデルのパラメータの意味について名前としてある程度整備されているが,実際の入力でどのように変化するのかを示す.
+図\ref{fig:cakeParamMean_1} - \ref{fig:cakeParamMean_4}に
+Cake モデルにおいての,図\ref{fig:sofaParamMean_1} - \ref{fig:sofaParamMean_7}に Sofa モデルにおいてのパラメータが最小と最大の時のモデルを示す.
+
+\input{doc/appendix/data/appendixCake}
+\include{doc/appendix/data/appendixSofa}
+
+\clearpage
+
+\setcounter{table}{0}
+\setcounter{figure}{0}
+
+\section{提案モデルの推移}\label{appendix:gaChange}
+本付録では,遺伝的アルゴリズムの推移を具体的なグラフを用いて示す.
+図\ref{fig:gaChange1_1} - \ref{fig:gaChange1_3}に
+実験1における具体的な提案モデルの推移を,
+図\ref{fig:gaChange2_1} - \ref{fig:gaChange2_3}に
+実験2における具体的な提案モデルの推移を示す.
+既存の研究では縦軸は適応度が利用されるが,本研究では選択によって行われるため実験1では見本モデルとの,実験2では最後に作成されたモデルとのユークリッド距離を用いる.この時,各遺伝子の定義域について Min - Max normalization を事前処理として行っている.また,箱ひげ図が各ステップの提案モデル群,折れ線グラフが次ステップに進む前に決定されたモデルを意味する.
+
+\input{doc/appendix/data/appendixGaChange}
+
+\clearpage
+
+\setcounter{table}{0}
+\setcounter{figure}{0}
+
+\section{提案モデルパラメータの二次元可視化}\label{appendix:tSNE}
+\hyperref[appendix:gaChange]{付録B}で示した提案モデルの推移では,提案モデルパラメータを最終モデルとの距離によって視覚化したが、それだけでは探索範囲の比較が難しい.そこで本章では t-SNE \cite{van2008visualizing} という手法により二次元に次元削減を行う.
+図\ref{fig:tSNE1_1},\ref{fig:tSNE1_2}に実験1を,図\ref{fig:tSNE2_1},\ref{fig:tSNE2_2}に実験2の結果を示す.
+この散布図について縁取りが青いものが提案システム,赤いものが既存システムによる提案モデルであり,内部の色が0から1に行くにつれてステップ数が増加するようにしている. また,軸についてはそれぞれ無次元量である.
+
+\input{doc/appendix/data/appendixTSNE}
